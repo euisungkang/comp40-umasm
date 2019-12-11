@@ -1,0 +1,85 @@
+# Calling Convention
+# r1 is return address
+# r2 is stack pointer
+# r3 is print pointer (made in .section data)
+# r1, r4 is non-volatile
+# r5 is buffer digit
+# r6, r7 are temps
+
+.section data
+
+print_stack:
+        .space 10000
+        print_stack_bottom:
+
+.section text
+.temps r6, r7
+
+newline:
+        r3 := print_stack_bottom
+
+        move_values_and_print:
+                .temps r6, r7
+                if (r2 == value_stack_bottom) goto restore_value_stack using r4
+
+                pop r4 off stack r2
+                push r4 on stack r3
+
+                goto print
+
+        restore_value_stack:
+                if (r3 == print_stack_bottom) goto waiting using r4
+                pop r4 off stack r3
+                push r4 on stack r2
+
+                goto restore_value_stack
+
+print:
+
+        output ">>> "
+
+        r7 := 0x80000000
+
+        if (r4 == r7) goto print_most_neg using r5
+        if (r4 == 0) goto print_zero using r5
+        if (r4 <s 0) goto print_neg using r5
+
+        r1 := 0
+
+        isolate_digits:
+                r1 := r1 + 1
+
+                r5 := r4 mod 10
+                push r5 on stack r3
+
+                r4 := r4 / 10
+
+                if (r4 == 0) goto print_number
+                goto isolate_digits
+
+        print_number:
+                r1 := r1 - 1
+
+                pop r4 off stack r3
+                r4 := r4 + '0'
+                output r4
+
+                if (r1 != 0) goto print_number
+
+                output '\n'
+
+                goto move_values_and_print
+
+        print_zero:
+                output "0\n"
+                goto move_values_and_print
+
+        print_most_neg:
+                output "-2147483648\n"
+                goto move_values_and_print
+
+        print_neg:
+                output "-"
+                r4 := -r4
+                r1 := 0
+                goto isolate_digits 

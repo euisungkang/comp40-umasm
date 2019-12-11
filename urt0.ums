@@ -1,0 +1,8 @@
+.section data
+
+value_stack: 
+	.space 10000
+	value_stack_bottom:
+
+.section init
+	r2 := value_stack_bottom

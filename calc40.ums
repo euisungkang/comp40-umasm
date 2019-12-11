@@ -1,0 +1,322 @@
+# Calling Convention
+# r0 is zero
+# r1 is return address
+# r2 is stack pointer
+# r3, r4 are non-volatile
+# r5 is stack length (temp)
+# r6, r7 are temps
+
+.section init
+.zero r0
+.temps r6, r7
+
+.section rodata
+        jumptable:
+                .space 256
+
+r5 := 0
+init_jumptable:
+        r6 := jumptable + r5
+        m[r0][r6] := input_error
+        r5 := r5 + 1
+        if (r5 >s 256) goto fill_table using r3
+        goto init_jumptable
+
+fill_table:
+        r5 := '0'
+        fill_digits:
+                r4 := jumptable + r5
+                m[r0][r4] := digit
+
+                r5 := r5 + 1
+                if (r5 >s '9') goto fill_commands using r3
+                goto fill_digits
+
+        fill_commands:
+                m[r0][jumptable + ' '] := waiting
+                m[r0][jumptable + '+'] := add
+                m[r0][jumptable + '-'] := subtract
+                m[r0][jumptable + '*'] := multiply
+                m[r0][jumptable + '/'] := divide
+                m[r0][jumptable + '|'] := BITOR
+                m[r0][jumptable + '&'] := BITAND
+                m[r0][jumptable + '~'] := BITNOT
+                m[r0][jumptable + 'c'] := negative
+                m[r0][jumptable + 's'] := swap
+                m[r0][jumptable + 'd'] := duplicate
+                m[r0][jumptable + 'p'] := pop_stack
+                m[r0][jumptable + 'z'] := clear
+                m[r0][jumptable + '\n'] := newline
+
+                r5 := 0
+                .temps r6, r7
+                goto waiting
+
+.section text
+.temps r6, r7
+
+waiting:
+        output "waiting\n"
+        # r4 holds input char
+        r4 := input()
+
+        # Complement of EOF is 0
+        r6 := ~r4
+        if (r6 == 0) goto end_program
+
+        goto jump_to_table
+
+entering:
+        output "entering\n"
+        # r4 holds input char
+        r4 := input()
+
+        # Complement of EOF is 0
+        r6 := ~r4
+        if (r6 == 0) goto end_program
+
+        .temps r6, r7
+
+        if (r4 <s '0') goto jump_to_table using r3
+        if (r4 >s '9') goto jump_to_table using r3
+
+        .temps r6, r7
+
+        goto double_digit
+
+input_error:
+        output "Unkown Character: "
+        output r4
+        goto waiting
+
+operand_error:
+        output "Invalid Operands\n"
+        goto waiting
+
+digit:
+        output "in digit\n"
+        # r4 is most recent input char, r3 holds numeric value
+        r3 := r4 - '0'
+
+        push r3 on stack r2
+        r5 := r5 + 1
+
+        goto entering
+
+double_digit:
+        output "double digit\n"
+        pop r3 off stack r2
+
+        r3 := r3 * 10
+        r3 := r3 + r4
+        r3 := r3 - '0'
+
+        push r3 on stack r2
+        goto entering
+
+add:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+        r3 := r3 + r4
+        push r3 on stack r2
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+subtract:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+        r3 := r4 - r3
+        push r3 on stack r2
+
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+multiply:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+        r3 := r3 * r4
+        push r3 on stack r2
+
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+divide:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+
+        .temps r6, r7
+
+        if (r3 == 0) goto div_zero 
+        if (r4 <s 0) goto neg_num using r3
+        if (r3 <s 0) goto neg_denom using r3
+
+
+
+        div_zero:
+                output "Error: Divide by 0\n"
+
+                .temps r6, r7
+
+                push r4 on stack r2
+                push r3 on stack r2
+                goto waiting
+
+        neg_num:
+                .temps r1, r6, r7
+                if (r3 <s 0) goto both_neg
+
+                r4 := -r4
+                r4 := r4 / r3
+                r4 := -r4
+
+                push r4 on stack r2
+                r5 := r5 - 1
+
+
+                .temps r6, r7
+                goto waiting
+
+        neg_denom:
+                r3 := -r3
+                r4 := r4 / r3
+                r4 := -r4
+
+                push r4 on stack r2
+                r5 := r5 - 1
+
+
+                .temps r6, r7
+                goto waiting
+
+        both_neg:
+                r3 := -r3
+                r4 := -r4
+                r4 := r4 / r3
+                push r4 on stack r2
+                r5 := r5 - 1
+
+
+                .temps r6, r7
+                goto waiting
+
+BITOR:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+        r3 := r3 | r4
+        push r3 on stack r2
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+BITAND:
+        goto check2 linking r1
+
+        pop r3 off stack r2
+        pop r4 off stack r2
+        r3 := r3 & r4
+        push r3 on stack r2
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+BITNOT:
+        goto check1 linking r1
+
+        pop r3 off stack r2
+        r3 := ~r3
+        push r3 on stack r2
+
+        .temps r6, r7
+        goto waiting
+
+negative:
+        goto check1 linking r1
+
+        pop r3 off stack r2
+        r3 := -r3
+        push r3 on stack r2
+
+        .temps r6, r7
+        goto waiting
+
+swap:
+        goto check2 linking r1
+        .temps r6, r7
+        
+        pop r3 off stack r2
+        pop r4 off stack r2
+        push r3 on stack r2
+        push r4 on stack r2
+
+
+        goto waiting
+
+duplicate:
+        goto check1 linking r1
+        .temps r6, r7
+
+        pop r3 off stack r2
+        push r3 on stack r2
+        push r3 on stack r2
+        r5 := r5 + 1
+
+
+        goto waiting
+
+pop_stack:
+        goto check1 linking r1
+
+        pop stack r2
+        r5 := r5 - 1
+
+        .temps r6, r7
+        goto waiting
+
+clear:
+        if (r5 == 0) goto clear_temps_waiting
+        pop stack r2
+        r5 := r5 - 1
+        goto clear
+
+check1:
+        .temps r6, r7
+        if (r5 >=s 1) goto r1 using r3
+        goto operand_error
+
+check2:
+        .temps r6, r7
+        if (r5 >=s 2) goto r1 using r3
+        goto operand_error
+
+end_program:
+        halt
+
+jump_to_table:
+        # Goto location given in jumptable
+        r3 := jumptable + r4
+
+        r3 := m[r0][r3]
+
+        goto r3
+
+clear_temps_waiting:
+        .temps r6, r7
+        goto waiting
