@@ -10,76 +10,31 @@
 .zero r0
 .temps r6, r7
 
-.section rodata
-        jumptable:
-                .space 256
-
-r5 := 0
-init_jumptable:
-        r6 := jumptable + r5
-        m[r0][r6] := input_error
-        r5 := r5 + 1
-        if (r5 >s 256) goto fill_table using r3
-        goto init_jumptable
-
-fill_table:
-        r5 := '0'
-        fill_digits:
-                r4 := jumptable + r5
-                m[r0][r4] := digit
-
-                r5 := r5 + 1
-                if (r5 >s '9') goto fill_commands using r3
-                goto fill_digits
-
-        fill_commands:
-                m[r0][jumptable + ' '] := waiting
-                m[r0][jumptable + '+'] := add
-                m[r0][jumptable + '-'] := subtract
-                m[r0][jumptable + '*'] := multiply
-                m[r0][jumptable + '/'] := divide
-                m[r0][jumptable + '|'] := BITOR
-                m[r0][jumptable + '&'] := BITAND
-                m[r0][jumptable + '~'] := BITNOT
-                m[r0][jumptable + 'c'] := negative
-                m[r0][jumptable + 's'] := swap
-                m[r0][jumptable + 'd'] := duplicate
-                m[r0][jumptable + 'p'] := pop_stack
-                m[r0][jumptable + 'z'] := clear
-                m[r0][jumptable + '\n'] := newline
-
-                r5 := 0
-                .temps r6, r7
-                goto waiting
-
 .section text
-.temps r6, r7
 
 waiting:
-        # r4 holds input char
+        # r4 = input char
         r4 := input()
 
         # Complement of EOF is 0
-        r6 := ~r4
-        if (r6 == 0) goto end_program
+        r3 := ~r4
+        if (r3 == 0) goto end_program
 
         goto jump_to_table
 
 entering:
-        # r4 holds input char
+        # r4 = input char
         r4 := input()
 
         # Complement of EOF is 0
-        r6 := ~r4
-        if (r6 == 0) goto end_program
+        r3 := ~r4
+        if (r3 == 0) goto end_program
 
-        .temps r6, r7
-
+        # if char is not a digit, jump to appropriate command in table
         if (r4 <s '0') goto jump_to_table using r3
         if (r4 >s '9') goto jump_to_table using r3
 
-        .temps r6, r7
-
+        # if a digit follows after another digit, it is a multi-digit number
         goto double_digit
 
 input_error:
@@ -91,8 +46,33 @@ operand_error:
         output "Invalid Operands\n"
         goto waiting
 
+check1:
+        if (r2 == value_stack_bottom) goto stack_underflow1_value_0 using r3
+        goto r1
+
+check2:
+        if (r2 == value_stack_bottom) goto stack_underflow2_value_0 using r3
+
+        pop r4 off stack r2
+        if (r2 == value_stack_bottom) goto stack_underflow2_value_1 using r3
+
+        goto r1
+
+stack_underflow2_value_0:
+        output "Stack underflow---expected at least 2 elements\n"
+        goto waiting
+
+stack_underflow2_value_1:
+        push r4 on stack r2
+        output "Stack underflow---expected at least 2 elements\n"
+        goto waiting
+
+stack_underflow1_value_0:
+        output "Stack underflow---expected at least 1 element\n"
+        goto waiting
+
 digit:
-        # r4 is most recent input char, r3 holds numeric value
+        # r4 is most recent input char, r3 = numeric value
         r3 := r4 - '0'
 
         push r3 on stack r2
@@ -103,6 +83,7 @@ digit:
 double_digit:
         pop r3 off stack r2
 
+        # multiplying 10 gives r3 enough space to add an extra digit
         r3 := r3 * 10
         r3 := r3 + r4
         r3 := r3 - '0'
@@ -111,20 +92,30 @@ double_digit:
         goto entering
 
 add:
+        # To add, we need two numbers
         goto check2 linking r1
 
+        # Add two numbers on top of the stack
         pop r3 off stack r2
         pop r4 off stack r2
         r3 := r3 + r4
         push r3 on stack r2
+
+        # Two numbers became one, so length--
         r5 := r5 - 1
 
         .temps r6, r7
         goto waiting
 
 subtract:
+        output "Length stack: "
+        output r5
+        output "\n"
+
+        # To subtract, we need two numbers
         goto check2 linking r1
 
+        # Sub two numbers on top of stack
         pop r3 off stack r2
         pop r4 off stack r2
         r3 := r4 - r3
@@ -136,8 +127,10 @@ subtract:
         goto waiting
 
 multiply:
+        # To multiply, we need two numbers
         goto check2 linking r1
 
+        # Multiply two numbers on top of stack
         pop r3 off stack r2
         pop r4 off stack r2
         r3 := r3 * r4
@@ -149,91 +142,98 @@ multiply:
         goto waiting
 
 divide:
+        # To divide, we need num and denom
         goto check2 linking r1
 
         pop r3 off stack r2
         pop r4 off stack r2
 
-        .temps r6, r7
-
+        # Case 1: Division by zero should be an error
         if (r3 == 0) goto div_zero 
+
+        # Case 2: Numerator and denominator negatives are handled separately.
         if (r4 <s 0) goto neg_num using r3
         if (r3 <s 0) goto neg_denom using r3
-
-
 
         div_zero:
                 output "Error: Divide by 0\n"
 
-                .temps r6, r7
-
+                # Save nonvolatiles
                 push r4 on stack r2
                 push r3 on stack r2
                 goto waiting
 
         neg_num:
-                .temps r1, r6, r7
-                if (r3 <s 0) goto both_neg
+                # Case 3: If both numerator and denominator are negative
+                if (r3 <s 0) goto both_neg using r1
 
+                # r4 is the negative numerator
                 r4 := -r4
                 r4 := r4 / r3
                 r4 := -r4
-
                 push r4 on stack r2
-                r5 := r5 - 1
 
+                r5 := r5 - 1
 
                 .temps r6, r7
                 goto waiting
 
         neg_denom:
+
+                # r3 is the negative denominator
                 r3 := -r3
                 r4 := r4 / r3
                 r4 := -r4
-
                 push r4 on stack r2
-                r5 := r5 - 1
 
+                r5 := r5 - 1
 
                 .temps r6, r7
                 goto waiting
 
         both_neg:
+
+                # both r3 and r4 are negative. - * - = +
                 r3 := -r3
                 r4 := -r4
                 r4 := r4 / r3
                 push r4 on stack r2
-                r5 := r5 - 1
 
+                r5 := r5 - 1
 
                 .temps r6, r7
                 goto waiting
 
 BITOR:
+        # | operator requires two arguments
         goto check2 linking r1
 
         pop r3 off stack r2
         pop r4 off stack r2
         r3 := r3 | r4
         push r3 on stack r2
+
         r5 := r5 - 1
 
         .temps r6, r7
         goto waiting
 
 BITAND:
+        # & operator requires two arguments
         goto check2 linking r1
 
         pop r3 off stack r2
         pop r4 off stack r2
         r3 := r3 & r4
         push r3 on stack r2
+
         r5 := r5 - 1
 
         .temps r6, r7
         goto waiting
 
 BITNOT:
+        # ~ operator requires one argument
         goto check1 linking r1
 
         pop r3 off stack r2
@@ -244,8 +244,10 @@ BITNOT:
         goto waiting
 
 negative:
+        # negating requires one argument
         goto check1 linking r1
 
+        # We can switch to negative by adding -
         pop r3 off stack r2
         r3 := -r3
         push r3 on stack r2
@@ -254,30 +256,34 @@ negative:
         goto waiting
 
 swap:
+        # swapping requires two arguments
         goto check2 linking r1
-        .temps r6, r7
-        
+
+        # pop and push at reversed order
         pop r3 off stack r2
         pop r4 off stack r2
         push r3 on stack r2
         push r4 on stack r2
 
-
+        .temps r6, r7
         goto waiting
 
 duplicate:
+        # duplicating requires one argument
         goto check1 linking r1
-        .temps r6, r7
 
+        # push the same value twice to duplicate
         pop r3 off stack r2
         push r3 on stack r2
         push r3 on stack r2
+
         r5 := r5 + 1
 
-
+        .temps r6, r7
         goto waiting
 
 pop_stack:
+        # popping from stack requires at least one value in stack
         goto check1 linking r1
 
         pop stack r2
@@ -287,20 +293,11 @@ pop_stack:
         goto waiting
 
 clear:
+        # loop through entire stack, deleting it
         if (r5 == 0) goto clear_temps_waiting
         pop stack r2
         r5 := r5 - 1
         goto clear
-
-check1:
-        .temps r6, r7
-        if (r5 >=s 1) goto r1 using r3
-        goto operand_error
-
-check2:
-        .temps r6, r7
-        if (r5 >=s 2) goto r1 using r3
-        goto operand_error
 
 end_program:
         halt
@@ -313,6 +310,7 @@ jump_to_table:
 
         goto r3
 
+# only difference to waiting is this clears all temps
 clear_temps_waiting:
         .temps r6, r7
         goto waiting

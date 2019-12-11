@@ -44,6 +44,8 @@ print:
 
         r7 := 0x80000000
 
+        push r5 on stack r2
+
         # Case 1: Printing EOF, or 0x80000000
         if (r4 == r7) goto print_most_neg using r5
 
@@ -53,16 +55,21 @@ print:
         # Case 3: Printing a negative number, simply need to output - at start
         if (r4 <s 0) goto print_neg using r5
 
+        pop r5 off stack r2
         r1 := 0
 
         isolate_digits:
                 # increment amount of objects to print
                 r1 := r1 + 1
 
+                push r1 on stack r2
+
                 # mod 10 and / 10 to separate multi-digit numbers
-                r5 := r4 mod 10
-                push r5 on stack r3
+                r1 := r4 mod 10
+                push r1 on stack r3
                 r4 := r4 / 10
+
+                pop r1 off stack r2
 
                 if (r4 == 0) goto print_number
                 goto isolate_digits
@@ -84,15 +91,21 @@ print:
                 goto move_values_and_print
 
         print_zero:
+                pop r5 off stack r2
+
                 output "0\n"
                 goto move_values_and_print
 
         print_most_neg:
+                pop r5 off stack r2
+
                 # 2147483648 is the max value for 32 bit unsigned.
                 output "-2147483648\n"
                 goto move_values_and_print
 
         print_neg:
+                pop r5 off stack r2
+
                 output "-"
                 r4 := -r4
                 r1 := 0

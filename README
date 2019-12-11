@@ -11,7 +11,7 @@ Departures from convention:
 
     printd.ums
         - r3 is used only as a pointer to the print stack, similar to r2
-        - Both r1 and r5 are used as nonvolatile registers
+        - r1, r5 are used as nonvolatile registers
 
 The print module utilizes a secondary print stack to transfer all data
 from the value stack whilst printing, and back before resuming the

@@ -1,8 +1,68 @@
+.section rodata
+        jumptable:
+                .space 256
+
 .section data
 
+# allocate space for value_stack
+# value_stack_bottom is to keep track of the end of the value_stack. This is
+# used when transferring to print_stack and printing values
 value_stack: 
-	.space 10000
-	value_stack_bottom:
+    .space 10000
+    value_stack_bottom:
 
 .section init
-	r2 := value_stack_bottom
+    # set r2 to bottom of value_stack
+    r2 := value_stack_bottom
+
+    .temps r6, r7
+
+    # r5 to 0 to iterate when initializing jumptable
+    r5 := 0
+    init_jumptable:
+            # default value is input_error, specified in spec
+            r6 := jumptable + r5
+            m[r0][r6] := input_error
+            r5 := r5 + 1
+
+            # Once jumptable is all initialized, initialize digits in table
+            if (r5 >s 256) goto fill_table using r3
+            goto init_jumptable
+
+    fill_table:
+
+            # set r5 to ASCII 0 to iterate 0 ~ 9
+            r5 := '0'
+            fill_digits:
+                    # digits set to digit label
+                    r4 := jumptable + r5
+                    m[r0][r4] := digit
+                    r5 := r5 + 1
+
+                    # Next is to fill commands/functionalities
+                    if (r5 >s '9') goto fill_commands using r3
+                    goto fill_digits
+
+            fill_commands:
+                    # Note: n in the spec is not listed since n stands for any
+                    #       digit 0 ~ 9
+
+                    m[r0][jumptable + ' '] := waiting
+                    m[r0][jumptable + '+'] := add
+                    m[r0][jumptable + '-'] := subtract
+                    m[r0][jumptable + '*'] := multiply
+                    m[r0][jumptable + '/'] := divide
+                    m[r0][jumptable + '|'] := BITOR
+                    m[r0][jumptable + '&'] := BITAND
+                    m[r0][jumptable + '~'] := BITNOT
+                    m[r0][jumptable + 'c'] := negative
+                    m[r0][jumptable + 's'] := swap
+                    m[r0][jumptable + 'd'] := duplicate
+                    m[r0][jumptable + 'p'] := pop_stack
+                    m[r0][jumptable + 'z'] := clear
+                    m[r0][jumptable + '\n'] := newline
+
+                    # Reset r5 to 0 since it'll represent stack length
+                    r5 := 0
+                    .temps r6, r7
+                    goto waiting
