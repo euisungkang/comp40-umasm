@@ -3,7 +3,7 @@
 # r1 is return address
 # r2 is stack pointer
 # r3, r4 are non-volatile
-# r5 is stack length (temp)
+# r5 is stack length (non-v)
 # r6, r7 are temps
 
 .section init
@@ -56,7 +56,6 @@ fill_table:
 .temps r6, r7
 
 waiting:
-        output "waiting\n"
         # r4 holds input char
         r4 := input()
 
@@ -67,7 +66,6 @@ waiting:
         goto jump_to_table
 
 entering:
-        output "entering\n"
         # r4 holds input char
         r4 := input()
 
@@ -94,7 +92,6 @@ operand_error:
         goto waiting
 
 digit:
-        output "in digit\n"
         # r4 is most recent input char, r3 holds numeric value
         r3 := r4 - '0'
 
@@ -104,7 +101,6 @@ digit:
         goto entering
 
 double_digit:
-        output "double digit\n"
         pop r3 off stack r2
 
         r3 := r3 * 10

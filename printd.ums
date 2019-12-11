@@ -1,5 +1,4 @@
 # Calling Convention
-# r1 is return address
 # r2 is stack pointer
 # r3 is print pointer (made in .section data)
 # r1, r4 is non-volatile
@@ -8,6 +7,9 @@
 
 .section data
 
+# Allocate space for print stack
+# print stack holds all values of value_stack as they are passed for printing
+# all values are restored onto value_stack once printing is finished
 print_stack:
         .space 10000
         print_stack_bottom:
@@ -16,10 +18,11 @@ print_stack:
 .temps r6, r7
 
 newline:
+        # start print_stack from the bottom
         r3 := print_stack_bottom
 
+        # transfer values to print stack whilst printing
         move_values_and_print:
-                .temps r6, r7
                 if (r2 == value_stack_bottom) goto restore_value_stack using r4
 
                 pop r4 off stack r2
@@ -27,39 +30,48 @@ newline:
 
                 goto print
 
+        # move all print stack values into value stack
         restore_value_stack:
                 if (r3 == print_stack_bottom) goto waiting using r4
+
                 pop r4 off stack r3
                 push r4 on stack r2
 
                 goto restore_value_stack
 
 print:
-
         output ">>> "
 
         r7 := 0x80000000
 
+        # Case 1: Printing EOF, or 0x80000000
         if (r4 == r7) goto print_most_neg using r5
+
+        # Case 2: Printing zero, specified in spec
         if (r4 == 0) goto print_zero using r5
+
+        # Case 3: Printing a negative number, simply need to output - at start
         if (r4 <s 0) goto print_neg using r5
 
         r1 := 0
 
         isolate_digits:
+                # increment amount of objects to print
                 r1 := r1 + 1
 
+                # mod 10 and / 10 to separate multi-digit numbers
                 r5 := r4 mod 10
                 push r5 on stack r3
-
                 r4 := r4 / 10
 
                 if (r4 == 0) goto print_number
                 goto isolate_digits
 
         print_number:
+                # decrement as we print
                 r1 := r1 - 1
 
+                # print the character value, + '0'
                 pop r4 off stack r3
                 r4 := r4 + '0'
                 output r4
@@ -68,6 +80,7 @@ print:
 
                 output '\n'
 
+                # If done printing, fetch the next value to print
                 goto move_values_and_print
 
         print_zero:
@@ -75,6 +88,7 @@ print:
                 goto move_values_and_print
 
         print_most_neg:
+                # 2147483648 is the max value for 32 bit unsigned.
                 output "-2147483648\n"
                 goto move_values_and_print
 

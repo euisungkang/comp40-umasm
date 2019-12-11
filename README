@@ -2,3 +2,21 @@ Easton Euisung Kang (ekang05)
 
 Aknowledgements: Received no assistance
 
+I believe everything has been correctly implemented.
+
+Departures from convention:
+    calc40.ums
+        - r5 is used as a nonvolatile register. Mainly used to store the 
+          value stack length
+
+    printd.ums
+        - r3 is used only as a pointer to the print stack, similar to r2
+        - Both r1 and r5 are used as nonvolatile registers
+
+The print module utilizes a secondary print stack to transfer all data
+from the value stack whilst printing, and back before resuming the
+program.
+
+Hours analyzing: 3 hours
+Hours writing: 4 hours
+Hours debugging: 11 hours
