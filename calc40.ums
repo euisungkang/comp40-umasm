@@ -45,27 +45,33 @@ operand_error:
         goto waiting
 
 check1:
+        # When we require at least one value in stack, but there are none
         if (r2 == value_stack_bottom) goto stack_underflow1_value_0 using r4
         goto r1
 
 check2:
+        # When we require at least two values in stack, but there are none
         if (r2 == value_stack_bottom) goto stack_underflow2_value_0 using r4
 
+        # When we require at least two values in stack, but there is only one
         pop r4 off stack r2
         if (r2 == value_stack_bottom) goto stack_underflow2_value_1 using r3
         push r4 on stack r2
 
         goto r1
 
+# Prints needed 2, but none error
 stack_underflow2_value_0:
         output "Stack underflow---expected at least 2 elements\n"
         goto waiting
 
+# Prints needed 2, but only one error
 stack_underflow2_value_1:
         push r4 on stack r2
         output "Stack underflow---expected at least 2 elements\n"
         goto waiting
 
+# Prints needed 1, but none error
 stack_underflow1_value_0:
         output "Stack underflow---expected at least 1 element\n"
         goto waiting
@@ -146,6 +152,7 @@ divide:
         # Case 1: Division by zero should be an error
         if (r3 == 0) goto div_zero 
 
+        # Need to use r5 as temp, store and later pop
         push r5 on stack r2
 
         # Case 2: Numerator and denominator negatives are handled separately.
@@ -154,6 +161,7 @@ divide:
 
         pop r5 off stack r2
 
+        # Perform regular positive / positive division
         r4 := r4 / r3
         push r4 on stack r2
         r5 := r5 - 1
